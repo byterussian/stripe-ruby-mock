@@ -8,11 +8,14 @@ module StripeMock
         klass.add_handler 'get /v1/invoiceitems/(.*)',    :get_invoice_item
         klass.add_handler 'get /v1/invoiceitems',         :list_invoice_items
         klass.add_handler 'delete /v1/invoiceitems/(.*)', :delete_invoice_item
+        klass.add_handler 'get /v1/invoiceitems/(.*)',  :get_invoice_item
+        klass.add_handler 'get /v1/invoiceitems',       :list_invoice_items
       end
 
       def new_invoice_item(route, method_url, params, headers)
         params[:id] ||= new_id('ii')
-        invoice_items[params[:id]] = Data.mock_invoice_item(params)
+        invoice_items[ params[:id] ] = Data.mock_invoice_item(params)
+        invoice_items[ params[:id] ]
       end
 
       def update_invoice_item(route, method_url, params, headers)
@@ -32,14 +35,18 @@ module StripeMock
       end
 
       def list_invoice_items(route, method_url, params, headers)
-        Data.mock_list_object(invoice_items.values, params)
+        invoice_items.values
       end
 
       def get_invoice_item(route, method_url, params, headers)
         route =~ method_url
         assert_existence :invoice_item, $1, invoice_items[$1]
+        invoice_items[$1] ||= Data.mock_invoice_item([], :id => $1)
       end
 
+      def list_invoice_items(route, method_url, params, headers)
+        invoice_items.values
+      end
     end
   end
 end

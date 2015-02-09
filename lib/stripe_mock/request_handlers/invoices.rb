@@ -64,12 +64,13 @@ module StripeMock
         raise Stripe::InvalidRequestError.new("No upcoming invoices for customer: #{customer[:id]}", nil, 404) if customer[:subscriptions][:data].length == 0
 
         most_recent = customer[:subscriptions][:data].min_by { |sub| sub[:current_period_end] }
-        invoice_item = get_mock_subscription_line_item(most_recent)
 
-        id = new_id('in')
-        invoices[id] = Data.mock_invoice([invoice_item],
-          id: id,
-          customer: customer[:id],
+        items_for_invoice = get_upcoming_invoice_items(customer[:id])
+        if items_for_invoice.empty?
+          items_for_invoice = [ get_mock_subscription_line_item(most_recent) ]
+        end
+
+        Data.mock_invoice(items_for_invoice,
           subscription: most_recent[:id],
           period_start: most_recent[:current_period_start],
           period_end: most_recent[:current_period_end],
@@ -77,6 +78,16 @@ module StripeMock
       end
 
       private
+
+      # Gets the (uncharged) invoice items for an upcoming invoice. If the invoice is nil,
+      # then it hasn't yet been charged, which means it will be charged as part of the next
+      # subscription invoice created event.
+      def get_upcoming_invoice_items(customer_id)
+        upcoming_items = []
+        items = invoice_items.select { |k,v| v[:customer] == customer_id && v[:invoice].nil? }
+        items.keys.each { |k| upcoming_items << items[k] }
+        upcoming_items
+      end
 
       def get_mock_subscription_line_item(subscription)
         Data.mock_line_item(
@@ -87,7 +98,7 @@ module StripeMock
           quantity: 1,
           period: {
             start: subscription[:current_period_end],
-            end: get_ending_time(subscription[:current_period_start], subscription[:plan], 2)
+          end: get_ending_time(subscription[:current_period_start], subscription[:plan], 2)
           })
       end
 
